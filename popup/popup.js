@@ -11,16 +11,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const thicknessVal = document.getElementById('thickness-val');
   const autoTriggerToggle = document.getElementById('auto-trigger-toggle');
 
-  const DEFAULT_SETTINGS = {
-    enabled: false,
-    color: '#ffffff',
-    brightness: 90,
-    thickness: 100,
-    preset: 'daylight',
-    shape: 'frame',
-    autoTrigger: false
-  };
-
   let currentState = { ...DEFAULT_SETTINGS };
   let debounceTimer = null;
 
@@ -29,7 +19,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const data = await chrome.storage.local.get(DEFAULT_SETTINGS);
       currentState = { ...DEFAULT_SETTINGS, ...data };
       renderUI(currentState);
-    } catch (e) {
+    } catch (error) {
+      console.warn('Virtual Ring Light: failed to load state', error);
     }
   }
 
@@ -38,14 +29,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     logoRing.classList.toggle('active', state.enabled);
     if (autoTriggerToggle) autoTriggerToggle.checked = !!state.autoTrigger;
 
-    presetBtns.forEach(btn => {
+    presetBtns.forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.preset === state.preset);
     });
 
     colorPickerWrapper.classList.toggle('active', state.preset === 'custom');
-    customColorPicker.value = state.color || '#ffffff';
+    customColorPicker.value = isValidHexColor(state.color) ? state.color : DEFAULT_SETTINGS.color;
 
-    shapeBtns.forEach(btn => {
+    shapeBtns.forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.shape === state.shape);
     });
 
@@ -56,52 +47,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     thicknessVal.textContent = `${state.thickness}px`;
   }
 
-  async function persistAndNotifyState() {
+  async function persistState() {
     try {
       await chrome.storage.local.set(currentState);
-
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      for (const tab of tabs) {
-        if (tab.id && tab.url && !tab.url.startsWith('chrome://')) {
-          try {
-            await chrome.tabs.sendMessage(tab.id, {
-              type: 'VIRTUAL_RINGLIGHT_STATE_CHANGE',
-              payload: currentState
-            });
-          } catch (err) {
-          }
-        }
-      }
-    } catch (e) {
+    } catch (error) {
+      console.warn('Virtual Ring Light: failed to persist state', error);
     }
   }
 
   function debouncedPersist() {
     if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      persistAndNotifyState();
-    }, 40);
+    debounceTimer = setTimeout(persistState, 40);
   }
 
   powerToggle.addEventListener('change', (e) => {
     currentState.enabled = e.target.checked;
     renderUI(currentState);
-    persistAndNotifyState();
+    persistState();
   });
 
   if (autoTriggerToggle) {
     autoTriggerToggle.addEventListener('change', (e) => {
       currentState.autoTrigger = e.target.checked;
-      persistAndNotifyState();
+      persistState();
     });
   }
 
-  presetBtns.forEach(btn => {
+  presetBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
       currentState.preset = btn.dataset.preset;
       currentState.color = btn.dataset.color;
       renderUI(currentState);
-      persistAndNotifyState();
+      persistState();
     });
   });
 
@@ -112,22 +89,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     debouncedPersist();
   });
 
-  shapeBtns.forEach(btn => {
+  shapeBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
       currentState.shape = btn.dataset.shape;
       renderUI(currentState);
-      persistAndNotifyState();
+      persistState();
     });
   });
 
   brightnessSlider.addEventListener('input', (e) => {
-    currentState.brightness = parseInt(e.target.value, 10);
+    currentState.brightness = clampNumber(
+      e.target.value,
+      SETTINGS_BOUNDS.brightness.min,
+      SETTINGS_BOUNDS.brightness.max,
+      DEFAULT_SETTINGS.brightness
+    );
     brightnessVal.textContent = `${currentState.brightness}%`;
     debouncedPersist();
   });
 
   thicknessSlider.addEventListener('input', (e) => {
-    currentState.thickness = parseInt(e.target.value, 10);
+    currentState.thickness = clampNumber(
+      e.target.value,
+      SETTINGS_BOUNDS.thickness.min,
+      SETTINGS_BOUNDS.thickness.max,
+      DEFAULT_SETTINGS.thickness
+    );
     thicknessVal.textContent = `${currentState.thickness}px`;
     debouncedPersist();
   });

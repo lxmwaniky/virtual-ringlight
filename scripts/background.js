@@ -1,26 +1,13 @@
-const DEFAULT_SETTINGS = Object.freeze({
-  enabled: false,
-  color: '#ffffff',
-  brightness: 90,
-  thickness: 100,
-  preset: 'daylight',
-  shape: 'frame',
-  autoTrigger: false
-});
+'use strict';
 
-const WEBINAR_DOMAINS = [
-  'meet.google.com',
-  'teams.microsoft.com',
-  'teams.live.com',
-  'zoom.us'
-];
+importScripts('shared/constants.js');
 
 chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === 'install') {
     try {
       await chrome.storage.local.set(DEFAULT_SETTINGS);
     } catch (error) {
-      console.error(error);
+      console.warn('Virtual Ring Light: failed to set default settings', error);
     }
   }
 
@@ -44,44 +31,26 @@ chrome.commands.onCommand.addListener(async (command) => {
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url) {
-    try {
-      const data = await chrome.storage.local.get(DEFAULT_SETTINGS);
-      if (data.autoTrigger) {
-        const isWebinarTab = WEBINAR_DOMAINS.some(domain => tab.url.includes(domain));
-        if (isWebinarTab && !data.enabled) {
-          await chrome.storage.local.set({ enabled: true });
-          await broadcastState({ ...data, enabled: true });
-        }
-      }
-    } catch (err) {
-      console.error(err);
+  if (changeInfo.status !== 'complete' || !tab.url) return;
+
+  try {
+    const data = await chrome.storage.local.get(DEFAULT_SETTINGS);
+    if (!data.autoTrigger || data.enabled) return;
+
+    const isWebinarTab = WEBINAR_DOMAINS.some((domain) => tab.url.includes(domain));
+    if (isWebinarTab) {
+      await chrome.storage.local.set({ enabled: true });
     }
+  } catch (error) {
+    console.warn('Virtual Ring Light: auto-trigger check failed', error);
   }
 });
 
 async function toggleRingLightState() {
   try {
     const data = await chrome.storage.local.get(DEFAULT_SETTINGS);
-    const newEnabledState = !data.enabled;
-    await chrome.storage.local.set({ enabled: newEnabledState });
-    await broadcastState({ ...data, enabled: newEnabledState });
+    await chrome.storage.local.set({ enabled: !data.enabled });
   } catch (error) {
-    console.error(error);
-  }
-}
-
-async function broadcastState(payload) {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  for (const tab of tabs) {
-    if (tab.id && tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('edge://')) {
-      try {
-        await chrome.tabs.sendMessage(tab.id, {
-          type: 'VIRTUAL_RINGLIGHT_STATE_CHANGE',
-          payload
-        });
-      } catch {
-      }
-    }
+    console.warn('Virtual Ring Light: failed to toggle state', error);
   }
 }

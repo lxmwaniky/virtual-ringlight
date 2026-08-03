@@ -1,0 +1,17 @@
+{
+  "name": "virtual-ring-light",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Dev tooling (lint/format) for the Virtual Ring Light browser extension. The extension itself ships as plain JS/HTML/CSS with zero runtime dependencies.",
+  "scripts": {
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "eslint": "^9.9.0",
+    "@eslint/js": "^9.9.0",
+    "globals": "^15.9.0",
+    "prettier": "^3.3.3"
+  }
+}

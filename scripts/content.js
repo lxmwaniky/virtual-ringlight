@@ -6,16 +6,6 @@
 
   const HOST_ID = '__vrl_ringlight_host__';
 
-  const DEFAULT_SETTINGS = {
-    enabled: false,
-    color: '#ffffff',
-    brightness: 90,
-    thickness: 100,
-    preset: 'daylight',
-    shape: 'frame',
-    autoTrigger: false
-  };
-
   let shadowRoot = null;
   let frameElement = null;
   let widgetElement = null;
@@ -23,11 +13,11 @@
   let isFullscreenActive = false;
 
   function hexToRgb(hex) {
-    hex = hex.replace(/^#/, '');
-    if (hex.length === 3) {
-      hex = hex.split('').map(c => c + c).join('');
+    let normalized = hex.replace(/^#/, '');
+    if (normalized.length === 3) {
+      normalized = normalized.split('').map((c) => c + c).join('');
     }
-    const num = parseInt(hex, 16);
+    const num = parseInt(normalized, 16);
     return {
       r: (num >> 16) & 255,
       g: (num >> 8) & 255,
@@ -72,7 +62,7 @@
         border-style: solid;
         border-color: var(--vrl-color, #ffffff);
         border-width: var(--vrl-thickness, 100px);
-        box-shadow: 
+        box-shadow:
           inset 0 0 calc(var(--vrl-thickness, 100px) * 0.9) var(--vrl-rgba),
           0 0 calc(var(--vrl-thickness, 100px) * 0.6) var(--vrl-rgba);
       }
@@ -91,7 +81,7 @@
         border-bottom: none;
         border-left: var(--vrl-thickness, 100px) solid var(--vrl-color, #ffffff);
         border-right: var(--vrl-thickness, 100px) solid var(--vrl-color, #ffffff);
-        box-shadow: 
+        box-shadow:
           inset calc(var(--vrl-thickness, 100px) * 0.6) 0 calc(var(--vrl-thickness, 100px) * 0.9) var(--vrl-rgba),
           inset calc(var(--vrl-thickness, 100px) * -0.6) 0 calc(var(--vrl-thickness, 100px) * 0.9) var(--vrl-rgba);
       }
@@ -105,7 +95,7 @@
           var(--vrl-rgba) 85%,
           var(--vrl-color, #ffffff) 100%
         );
-        box-shadow: inset 0 0 120px var(--vrl-rgba);
+        box-shadow: inset 0 0 calc(var(--vrl-thickness, 100px) * 1.2) var(--vrl-rgba);
       }
 
       .vrl-widget {
@@ -165,10 +155,14 @@
     widgetElement = document.createElement('div');
     widgetElement.className = 'vrl-widget';
     widgetElement.title = 'Virtual Ring Light Quick Switch (Click to cycle colors)';
-    widgetElement.innerHTML = `
-      <span class="vrl-widget-dot"></span>
-      <span>Light Controls</span>
-    `;
+
+    const dotEl = document.createElement('span');
+    dotEl.className = 'vrl-widget-dot';
+
+    const labelEl = document.createElement('span');
+    labelEl.textContent = 'Light Controls';
+
+    widgetElement.append(dotEl, labelEl);
 
     widgetElement.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -184,20 +178,17 @@
   }
 
   async function cycleColorPreset() {
-    const presets = [
-      { preset: 'warm', color: '#fff1d6' },
-      { preset: 'daylight', color: '#ffffff' },
-      { preset: 'cool', color: '#e2f1ff' }
-    ];
-
-    const currentIndex = presets.findIndex(p => p.preset === currentState.preset);
-    const nextIndex = (currentIndex + 1) % presets.length;
-    const nextPreset = presets[nextIndex];
+    const currentIndex = COLOR_PRESETS.findIndex((p) => p.preset === currentState.preset);
+    const nextPreset = COLOR_PRESETS[(currentIndex + 1) % COLOR_PRESETS.length];
 
     currentState.preset = nextPreset.preset;
     currentState.color = nextPreset.color;
 
-    await chrome.storage.local.set({ preset: currentState.preset, color: currentState.color });
+    try {
+      await chrome.storage.local.set({ preset: currentState.preset, color: currentState.color });
+    } catch (error) {
+      console.warn('Virtual Ring Light: failed to persist color preset', error);
+    }
     updateOverlay(currentState);
   }
 
@@ -205,7 +196,7 @@
     currentState = { ...currentState, ...settings };
     if (!frameElement) return;
 
-    const { enabled, color, brightness, thickness, shape } = currentState;
+    const { enabled, shape } = currentState;
 
     if (!enabled || isFullscreenActive) {
       frameElement.classList.remove('vrl-active');
@@ -215,14 +206,28 @@
 
     if (widgetElement) widgetElement.style.display = 'flex';
 
-    const opacityVal = Math.min(Math.max(brightness / 100, 0.05), 1.0);
-    const rgb = hexToRgb(color || '#ffffff');
+    const brightness = clampNumber(
+      currentState.brightness,
+      SETTINGS_BOUNDS.brightness.min,
+      SETTINGS_BOUNDS.brightness.max,
+      DEFAULT_SETTINGS.brightness
+    );
+    const thickness = clampNumber(
+      currentState.thickness,
+      SETTINGS_BOUNDS.thickness.min,
+      SETTINGS_BOUNDS.thickness.max,
+      DEFAULT_SETTINGS.thickness
+    );
+    const color = isValidHexColor(currentState.color) ? currentState.color : DEFAULT_SETTINGS.color;
+
+    const opacityVal = brightness / 100;
+    const rgb = hexToRgb(color);
     const rgbaStr = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacityVal})`;
     const rgbaTrans = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`;
 
     frameElement.style.setProperty('--vrl-color', color);
     frameElement.style.setProperty('--vrl-opacity', opacityVal.toString());
-    frameElement.style.setProperty('--vrl-thickness', `${thickness || 100}px`);
+    frameElement.style.setProperty('--vrl-thickness', `${thickness}px`);
     frameElement.style.setProperty('--vrl-rgba', rgbaStr);
     frameElement.style.setProperty('--vrl-rgba-transparent', rgbaTrans);
 
@@ -234,15 +239,10 @@
     try {
       const state = await chrome.storage.local.get(DEFAULT_SETTINGS);
       updateOverlay(state);
-    } catch (e) {
+    } catch (error) {
+      console.warn('Virtual Ring Light: failed to load state', error);
     }
   }
-
-  chrome.runtime.onMessage.addListener((message) => {
-    if (message && message.type === 'VIRTUAL_RINGLIGHT_STATE_CHANGE') {
-      updateOverlay(message.payload);
-    }
-  });
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === 'local') {
