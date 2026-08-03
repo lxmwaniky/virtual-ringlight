@@ -49,7 +49,7 @@
 
       <section class="section">
         <label class="section-label">Overlay Shape</label>
-        <div class="shape-grid">
+        <div class="shape-grid four-col">
           <button class="shape-btn active" data-shape="frame" title="Full Perimeter Frame">
             <svg viewBox="0 0 24 24" class="shape-icon"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="3"/></svg>
             <span>Frame</span>
@@ -61,6 +61,10 @@
           <button class="shape-btn" data-shape="side-strips" title="Dual Side Fill">
             <svg viewBox="0 0 24 24" class="shape-icon"><line x1="4" y1="3" x2="4" y2="21" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><line x1="20" y1="3" x2="20" y2="21" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
             <span>Side Bars</span>
+          </button>
+          <button class="shape-btn" data-shape="diffusion" title="Full Diffusion Box">
+            <svg viewBox="0 0 24 24" class="shape-icon"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"/><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            <span>Diffusion</span>
           </button>
         </div>
       </section>
@@ -80,6 +84,14 @@
             <span class="value-badge" id="thickness-val">100px</span>
           </div>
           <input type="range" id="thickness-slider" min="20" max="250" step="5" value="100" class="range-input" />
+        </div>
+
+        <div class="control-row inline-switch">
+          <label for="auto-trigger-toggle">Auto-on for Meet/Teams</label>
+          <label class="switch sm">
+            <input type="checkbox" id="auto-trigger-toggle" />
+            <span class="slider round"></span>
+          </label>
         </div>
       </section>
     </main>

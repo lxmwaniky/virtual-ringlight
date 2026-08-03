@@ -13,13 +13,14 @@
     thickness: 100,
     preset: 'daylight',
     shape: 'frame',
-    showWidget: true
+    autoTrigger: false
   };
 
   let shadowRoot = null;
   let frameElement = null;
   let widgetElement = null;
   let currentState = { ...DEFAULT_SETTINGS };
+  let isFullscreenActive = false;
 
   function hexToRgb(hex) {
     hex = hex.replace(/^#/, '');
@@ -65,6 +66,8 @@
         opacity: var(--vrl-opacity, 0.9);
         visibility: visible;
       }
+
+      /* Shape: Perimeter Frame */
       .vrl-overlay[data-shape="frame"] {
         border-style: solid;
         border-color: var(--vrl-color, #ffffff);
@@ -73,12 +76,16 @@
           inset 0 0 calc(var(--vrl-thickness, 100px) * 0.9) var(--vrl-rgba),
           0 0 calc(var(--vrl-thickness, 100px) * 0.6) var(--vrl-rgba);
       }
+
+      /* Shape: Top Bar */
       .vrl-overlay[data-shape="top-strip"] {
         border: none;
         height: calc(var(--vrl-thickness, 100px) * 2.8);
         background: linear-gradient(180deg, var(--vrl-color, #ffffff) 0%, var(--vrl-rgba-transparent) 100%);
         box-shadow: 0 0 calc(var(--vrl-thickness, 100px) * 1.5) var(--vrl-rgba);
       }
+
+      /* Shape: Side Bars */
       .vrl-overlay[data-shape="side-strips"] {
         border-top: none;
         border-bottom: none;
@@ -89,7 +96,18 @@
           inset calc(var(--vrl-thickness, 100px) * -0.6) 0 calc(var(--vrl-thickness, 100px) * 0.9) var(--vrl-rgba);
       }
 
-      /* Floating Quick Settings Trigger Badge */
+      /* Shape: Full Diffusion Vignette Box (Maximum Lumens) */
+      .vrl-overlay[data-shape="diffusion"] {
+        border: none;
+        background: radial-gradient(
+          circle at center,
+          rgba(0, 0, 0, 0) 35%,
+          var(--vrl-rgba) 85%,
+          var(--vrl-color, #ffffff) 100%
+        );
+        box-shadow: inset 0 0 120px var(--vrl-rgba);
+      }
+
       .vrl-widget {
         position: absolute;
         top: 14px;
@@ -158,6 +176,11 @@
     });
 
     shadowRoot.appendChild(widgetElement);
+
+    document.addEventListener('fullscreenchange', () => {
+      isFullscreenActive = !!document.fullscreenElement;
+      updateOverlay(currentState);
+    });
   }
 
   async function cycleColorPreset() {
@@ -184,7 +207,7 @@
 
     const { enabled, color, brightness, thickness, shape } = currentState;
 
-    if (!enabled) {
+    if (!enabled || isFullscreenActive) {
       frameElement.classList.remove('vrl-active');
       if (widgetElement) widgetElement.style.display = 'none';
       return;

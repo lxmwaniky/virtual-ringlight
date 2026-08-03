@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const brightnessVal = document.getElementById('brightness-val');
   const thicknessSlider = document.getElementById('thickness-slider');
   const thicknessVal = document.getElementById('thickness-val');
+  const autoTriggerToggle = document.getElementById('auto-trigger-toggle');
 
   const DEFAULT_SETTINGS = {
     enabled: false,
@@ -16,7 +17,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     brightness: 90,
     thickness: 100,
     preset: 'daylight',
-    shape: 'frame'
+    shape: 'frame',
+    autoTrigger: false
   };
 
   let currentState = { ...DEFAULT_SETTINGS };
@@ -34,6 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderUI(state) {
     powerToggle.checked = state.enabled;
     logoRing.classList.toggle('active', state.enabled);
+    if (autoTriggerToggle) autoTriggerToggle.checked = !!state.autoTrigger;
 
     presetBtns.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.preset === state.preset);
@@ -85,6 +88,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderUI(currentState);
     persistAndNotifyState();
   });
+
+  if (autoTriggerToggle) {
+    autoTriggerToggle.addEventListener('change', (e) => {
+      currentState.autoTrigger = e.target.checked;
+      persistAndNotifyState();
+    });
+  }
 
   presetBtns.forEach(btn => {
     btn.addEventListener('click', () => {
